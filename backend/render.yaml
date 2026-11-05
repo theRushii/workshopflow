@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: workshopflow-api
+    runtime: python
+    rootDir: .
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: workshopflow-db
+          property: connectionString
+      - key: ALLOWED_ORIGINS
+        value: https://workshopflow.vercel.app
+      - key: ADMIN_EMAIL
+        value: admin@workshopflow.local
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false  # set manually in Render dashboard
+
+databases:
+  - name: workshopflow-db
+    databaseName: workshopflow
+    user: workshopflow
