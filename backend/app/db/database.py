@@ -2,19 +2,33 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from app.core.config import settings
 
-# SQLite needs check_same_thread=False; for other DBs, the arg is ignored via kwargs
+is_sqlite = settings.DATABASE_URL.startswith("sqlite")
+is_postgres = settings.DATABASE_URL.startswith("postgresql") or settings.DATABASE_URL.startswith("postgres")
+
+# Build connect_args and engine kwargs based on DB type
 connect_args = {}
-if settings.DATABASE_URL.startswith("sqlite"):
+engine_kwargs = {"echo": False}
+
+if is_sqlite:
     connect_args = {"check_same_thread": False}
+elif is_postgres:
+    # Required for Supabase pooler (SSL) and connection stability
+    connect_args = {"sslmode": "require"}
+    engine_kwargs.update({
+        "pool_pre_ping": True,
+        "pool_recycle": 300,
+        "pool_size": 5,
+        "max_overflow": 10,
+    })
 
 engine = create_engine(
     settings.DATABASE_URL,
     connect_args=connect_args,
-    echo=False,
+    **engine_kwargs,
 )
 
-# Enable WAL mode and foreign keys for SQLite
-if settings.DATABASE_URL.startswith("sqlite"):
+# SQLite-only pragmas
+if is_sqlite:
     @event.listens_for(engine, "connect")
     def set_sqlite_pragma(dbapi_conn, connection_record):
         cursor = dbapi_conn.cursor()
