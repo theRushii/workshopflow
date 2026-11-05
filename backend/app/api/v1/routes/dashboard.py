@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import func, extract
+from sqlalchemy import func, extract, case
 from decimal import Decimal
 from datetime import datetime
-from app.db.database import get_db
+from app.db.database import get_db, engine
 from app.models.customer import Customer
 from app.models.service_request import ServiceRequest, ServiceRequestStatus
 from app.models.work_order import WorkOrder, WorkOrderStatus
@@ -15,6 +15,8 @@ from app.core.deps import get_current_user
 from app.models.user import User
 
 router = APIRouter()
+
+IS_SQLITE = engine.dialect.name == "sqlite"
 
 
 @router.get("/summary", response_model=DashboardSummary)
@@ -57,41 +59,61 @@ def get_charts(
     _: User = Depends(get_current_user),
 ):
     current_year = datetime.now().year
-
-    # Monthly requests
-    monthly_data = db.query(
-        func.strftime("%m", ServiceRequest.created_at).label("month"),
-        func.count(ServiceRequest.id).label("count"),
-    ).filter(
-        func.strftime("%Y", ServiceRequest.created_at) == str(current_year)
-    ).group_by("month").all()
-
     month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    monthly_map = {row.month: row.count for row in monthly_data}
+
+    # ── Monthly service requests ──────────────────────────────
+    if IS_SQLITE:
+        monthly_data = db.query(
+            func.strftime("%m", ServiceRequest.created_at).label("month"),
+            func.count(ServiceRequest.id).label("count"),
+        ).filter(
+            func.strftime("%Y", ServiceRequest.created_at) == str(current_year)
+        ).group_by("month").all()
+        monthly_map = {row.month: row.count for row in monthly_data}
+    else:
+        monthly_data = db.query(
+            extract("month", ServiceRequest.created_at).label("month"),
+            func.count(ServiceRequest.id).label("count"),
+        ).filter(
+            extract("year", ServiceRequest.created_at) == current_year
+        ).group_by("month").all()
+        monthly_map = {f"{int(row.month):02d}": row.count for row in monthly_data}
+
     monthly_requests = [
         ChartDataPoint(label=month_names[i], value=monthly_map.get(f"{i+1:02d}", 0))
         for i in range(12)
     ]
 
-    # Work order status
+    # ── Work order status distribution ────────────────────────
     status_data = db.query(
         WorkOrder.status,
         func.count(WorkOrder.id).label("count")
     ).group_by(WorkOrder.status).all()
+
     wo_status_chart = [
         ChartDataPoint(label=row.status.value.replace("_", " ").title(), value=row.count)
         for row in status_data
     ]
 
-    # Monthly revenue
-    revenue_data = db.query(
-        func.strftime("%m", Payment.created_at).label("month"),
-        func.sum(Payment.amount).label("total"),
-    ).filter(
-        func.strftime("%Y", Payment.created_at) == str(current_year)
-    ).group_by("month").all()
-    revenue_map = {row.month: float(row.total or 0) for row in revenue_data}
+    # ── Monthly revenue ───────────────────────────────────────
+    if IS_SQLITE:
+        revenue_data = db.query(
+            func.strftime("%m", Payment.created_at).label("month"),
+            func.sum(Payment.amount).label("total"),
+        ).filter(
+            func.strftime("%Y", Payment.created_at) == str(current_year)
+        ).group_by("month").all()
+        revenue_map = {row.month: float(row.total or 0) for row in revenue_data}
+    else:
+        revenue_data = db.query(
+            extract("month", Payment.created_at).label("month"),
+            func.sum(Payment.amount).label("total"),
+        ).filter(
+            extract("year", Payment.created_at) == current_year
+        ).group_by("month").all()
+        revenue_map = {f"{int(row.month):02d}": float(row.total or 0) for row in revenue_data}
+
     monthly_revenue = [
         RevenueDataPoint(label=month_names[i], value=revenue_map.get(f"{i+1:02d}", 0.0))
         for i in range(12)
