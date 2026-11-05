@@ -3,6 +3,7 @@ from app.api.v1.routes import (
     auth, customers, technicians, services,
     service_requests, work_orders, inventory,
     invoices, payments, dashboard, reports,
+    technician_portal,
 )
 
 api_router = APIRouter()
@@ -18,3 +19,4 @@ api_router.include_router(invoices.router, prefix="/invoices", tags=["Invoices"]
 api_router.include_router(payments.router, prefix="/payments", tags=["Payments"])
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
 api_router.include_router(reports.router, prefix="/reports", tags=["Reports"])
+api_router.include_router(technician_portal.router, prefix="/technician-portal", tags=["Technician Portal"])

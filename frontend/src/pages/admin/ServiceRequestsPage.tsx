@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Search, Eye, ArrowRight, CheckCircle, ClipboardList, Calendar } from 'lucide-react';
+import { Search, Eye, ArrowRight, CheckCircle, ClipboardList, Calendar, Flag } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
@@ -10,7 +10,12 @@ import { StatusBadge } from '../../components/StatusBadge';
 import { Pagination } from '../../components/Pagination';
 import { EmptyState } from '../../components/EmptyState';
 
-const STATUSES = ['', 'new', 'under_review', 'accepted', 'rejected', 'converted'];
+const STATUSES   = ['', 'new', 'under_review', 'accepted', 'rejected', 'converted'];
+const PRIORITIES = ['', 'low', 'medium', 'high', 'urgent'];
+
+const PRIORITY_BADGE: Record<string, string> = {
+  low: 'badge-low', medium: 'badge-medium', high: 'badge-high', urgent: 'badge-urgent',
+};
 
 export const ServiceRequestsPage = () => {
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
@@ -18,12 +23,15 @@ export const ServiceRequestsPage = () => {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ServiceRequest | null>(null);
   const [statusModal, setStatusModal] = useState(false);
+  const [priorityModal, setPriorityModal] = useState(false);
   const [convertLoading, setConvertLoading] = useState(false);
 
   const { register, handleSubmit, reset } = useForm<{ status: string; notes: string }>();
+  const { register: regPri, handleSubmit: hPri, reset: rPri } = useForm<{ priority: string }>();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -31,11 +39,12 @@ export const ServiceRequestsPage = () => {
       const p = new URLSearchParams({ page: String(page), page_size: '20' });
       if (search) p.set('search', search);
       if (statusFilter) p.set('status', statusFilter);
+      if (priorityFilter) p.set('priority', priorityFilter);
       const res = await api.get(`/service-requests?${p}`);
       setRequests(res.data.items);
       setTotal(res.data.total);
     } finally { setLoading(false); }
-  }, [page, search, statusFilter]);
+  }, [page, search, statusFilter, priorityFilter]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -48,12 +57,27 @@ export const ServiceRequestsPage = () => {
     reset({ status: req.status, notes: '' });
     setStatusModal(true);
   };
+  const openPriorityChange = (req: ServiceRequest) => {
+    setSelected(req);
+    rPri({ priority: (req as any).priority || 'medium' });
+    setPriorityModal(true);
+  };
   const onStatusSubmit = async (data: { status: string; notes: string }) => {
     if (!selected) return;
     try {
       await api.patch(`/service-requests/${selected.id}/status`, data);
       toast.success('Status updated');
       setStatusModal(false);
+      setSelected(null);
+      load();
+    } catch (err: any) { toast.error(err.response?.data?.detail || 'Error'); }
+  };
+  const onPrioritySubmit = async (data: { priority: string }) => {
+    if (!selected) return;
+    try {
+      await api.patch(`/service-requests/${selected.id}/priority`, data);
+      toast.success('Priority updated');
+      setPriorityModal(false);
       setSelected(null);
       load();
     } catch (err: any) { toast.error(err.response?.data?.detail || 'Error'); }
@@ -83,8 +107,11 @@ export const ServiceRequestsPage = () => {
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} className="input-field pl-10" placeholder="Search name, reference, phone…" />
         </div>
-        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="input-field w-auto min-w-[150px]">
+        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="input-field w-auto min-w-[140px]">
           {STATUSES.map(s => <option key={s} value={s}>{s ? s.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'All Statuses'}</option>)}
+        </select>
+        <select value={priorityFilter} onChange={e => { setPriorityFilter(e.target.value); setPage(1); }} className="input-field w-auto min-w-[130px]">
+          {PRIORITIES.map(p => <option key={p} value={p}>{p ? p.charAt(0).toUpperCase() + p.slice(1) + ' Priority' : 'All Priorities'}</option>)}
         </select>
       </div>
 
@@ -100,9 +127,10 @@ export const ServiceRequestsPage = () => {
                     <th className="table-th">Reference</th>
                     <th className="table-th">Customer</th>
                     <th className="table-th hidden md:table-cell">Issue</th>
+                    <th className="table-th">Priority</th>
                     <th className="table-th">Status</th>
                     <th className="table-th hidden sm:table-cell">Submitted</th>
-                    <th className="table-th w-24" />
+                    <th className="table-th w-28" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -117,6 +145,13 @@ export const ServiceRequestsPage = () => {
                       </td>
                       <td className="table-td hidden md:table-cell max-w-[200px]">
                         <p className="text-sm text-slate-600 truncate">{r.problem_description}</p>
+                      </td>
+                      <td className="table-td">
+                        <button onClick={() => openPriorityChange(r)} className="cursor-pointer" title="Click to change priority">
+                          <span className={PRIORITY_BADGE[(r as any).priority || 'medium'] || 'badge-medium'}>
+                            {(r as any).priority || 'medium'}
+                          </span>
+                        </button>
                       </td>
                       <td className="table-td"><StatusBadge status={r.status} /></td>
                       <td className="table-td hidden sm:table-cell">
@@ -240,6 +275,25 @@ export const ServiceRequestsPage = () => {
           <div className="flex gap-2.5 justify-end">
             <button type="button" onClick={() => setStatusModal(false)} className="btn-secondary">Cancel</button>
             <button type="submit" className="btn-primary">Update Status</button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={priorityModal} onClose={() => setPriorityModal(false)} title="Set Priority" size="sm">
+        <form onSubmit={hPri(onPrioritySubmit)} className="space-y-4">
+          <p className="text-sm text-slate-500">Request: <strong>{selected?.reference_number}</strong></p>
+          <div>
+            <label className="form-label">Priority</label>
+            <select {...regPri('priority')} className="input-field">
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </div>
+          <div className="flex gap-2.5 justify-end">
+            <button type="button" onClick={() => setPriorityModal(false)} className="btn-secondary">Cancel</button>
+            <button type="submit" className="btn-primary">Set Priority</button>
           </div>
         </form>
       </Modal>

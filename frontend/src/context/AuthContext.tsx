@@ -1,14 +1,16 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
 import api from '../services/api';
 import { User } from '../types';
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<{ role: string }>;
   logout: () => void;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isTechnician: boolean;
+  isStaff: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -20,7 +22,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   });
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('wf_token'));
 
-  const login = async (username: string, password: string) => {
+  const login = async (username: string, password: string): Promise<{ role: string }> => {
     const res = await api.post('/auth/login', { username, password });
     const data = res.data;
     setToken(data.access_token);
@@ -35,6 +37,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(userObj);
     localStorage.setItem('wf_token', data.access_token);
     localStorage.setItem('wf_user', JSON.stringify(userObj));
+    return { role: data.role };
   };
 
   const logout = () => {
@@ -46,9 +49,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider value={{
-      user, token, login, logout,
+      user,
+      token,
+      login,
+      logout,
       isAuthenticated: !!token && !!user,
       isAdmin: user?.role === 'admin',
+      isStaff: user?.role === 'staff',
+      isTechnician: user?.role === 'technician',
     }}>
       {children}
     </AuthContext.Provider>

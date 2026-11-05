@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, date
-from app.models.service_request import ServiceRequestStatus
+from app.models.service_request import ServiceRequestStatus, ServiceRequestPriority
 
 
 class ServiceRequestCreate(BaseModel):
@@ -14,11 +14,16 @@ class ServiceRequestCreate(BaseModel):
     problem_description: str
     preferred_date: Optional[date] = None
     additional_notes: Optional[str] = None
+    priority: ServiceRequestPriority = ServiceRequestPriority.MEDIUM
 
 
 class ServiceRequestStatusUpdate(BaseModel):
     status: ServiceRequestStatus
     notes: Optional[str] = None
+
+
+class ServiceRequestPriorityUpdate(BaseModel):
+    priority: ServiceRequestPriority
 
 
 class ServiceRequestInternalNotes(BaseModel):
@@ -49,6 +54,7 @@ class ServiceRequestOut(BaseModel):
     problem_description: str
     preferred_date: Optional[date]
     additional_notes: Optional[str]
+    priority: ServiceRequestPriority = ServiceRequestPriority.MEDIUM
     status: ServiceRequestStatus
     internal_notes: Optional[str]
     created_at: datetime

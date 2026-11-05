@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Boolean, DateTime, Text
+from sqlalchemy import Column, String, Boolean, DateTime, Text, ForeignKey
 from sqlalchemy.orm import relationship
 from app.db.database import Base
 
@@ -15,8 +15,11 @@ class Technician(Base):
     skills = Column(Text, nullable=True)
     is_available = Column(Boolean, default=True, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
+    # Link to a User account for login
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=True, unique=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
                         onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     work_orders = relationship("WorkOrder", back_populates="technician", lazy="dynamic")
+    user = relationship("User", foreign_keys=[user_id])

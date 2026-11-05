@@ -73,7 +73,11 @@ export const WorkOrdersPage = () => {
     if (!selected) return;
     try {
       await api.patch(`/work-orders/${selected.id}/status`, { status: data.status, notes: data.notes });
-      toast.success('Status updated');
+      // Also update priority if changed
+      if (data.priority && data.priority !== selected.priority) {
+        await api.put(`/work-orders/${selected.id}`, { priority: data.priority });
+      }
+      toast.success('Work order updated');
       setStatusModal(false);
       setDetailModal(false);
       setSelected(null);
@@ -213,21 +217,29 @@ export const WorkOrdersPage = () => {
 
             <div className="flex gap-2.5 justify-end pt-1 border-t border-slate-100">
               {selected.status !== 'completed' && selected.status !== 'cancelled' && (
-                <button onClick={() => { resetStatus({ status: selected.status, notes: '' }); setStatusModal(true); }} className="btn-secondary">
-                  Update Status
-                </button>
+                <>
+                  <button onClick={() => { resetStatus({ status: selected.status, notes: '', priority: selected.priority }); setStatusModal(true); }} className="btn-secondary">
+                    Update Status
+                  </button>
+                </>
               )}
             </div>
           </div>
         </Modal>
       )}
 
-      <Modal open={statusModal} onClose={() => setStatusModal(false)} title="Update Work Order Status" size="sm">
+      <Modal open={statusModal} onClose={() => setStatusModal(false)} title="Update Work Order" size="sm">
         <form onSubmit={handleStatusSubmit(onStatusChange)} className="space-y-4">
           <div>
-            <label className="form-label">New Status</label>
+            <label className="form-label">Status</label>
             <select {...regStatus('status')} className="input-field">
               {STATUSES.filter(Boolean).map(s => <option key={s} value={s}>{s.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase())}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="form-label">Priority</label>
+            <select {...regStatus('priority')} className="input-field">
+              {PRIORITIES.map(p => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
             </select>
           </div>
           <div>

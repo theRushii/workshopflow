@@ -25,8 +25,13 @@ export const LoginPage = () => {
   const onSubmit = async (data: FormData) => {
     setError('');
     try {
-      await login(data.username, data.password);
-      navigate('/admin');
+      const { role } = await login(data.username, data.password);
+      // Redirect based on role
+      if (role === 'technician') {
+        navigate('/technician');
+      } else {
+        navigate('/admin');
+      }
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Invalid credentials. Please try again.');
     }

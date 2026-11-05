@@ -14,6 +14,13 @@ class ServiceRequestStatus(str, enum.Enum):
     CONVERTED = "converted"
 
 
+class ServiceRequestPriority(str, enum.Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    URGENT = "urgent"
+
+
 class ServiceRequest(Base):
     __tablename__ = "service_requests"
 
@@ -22,7 +29,6 @@ class ServiceRequest(Base):
     customer_id = Column(String(36), ForeignKey("customers.id"), nullable=True)
     service_category_id = Column(String(36), ForeignKey("service_categories.id"), nullable=True)
 
-    # Customer details (captured at request time, even without account)
     customer_name = Column(String(255), nullable=False)
     customer_phone = Column(String(30), nullable=False)
     customer_email = Column(String(255), nullable=True)
@@ -32,7 +38,7 @@ class ServiceRequest(Base):
     problem_description = Column(Text, nullable=False)
     preferred_date = Column(Date, nullable=True)
     additional_notes = Column(Text, nullable=True)
-
+    priority = Column(SAEnum(ServiceRequestPriority), default=ServiceRequestPriority.MEDIUM, nullable=False)
     status = Column(SAEnum(ServiceRequestStatus), default=ServiceRequestStatus.NEW, nullable=False)
     internal_notes = Column(Text, nullable=True)
 

@@ -15,10 +15,7 @@ def get_current_user(
     token = credentials.credentials
     payload = decode_token(token)
     if not payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
@@ -37,4 +34,15 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
 def require_staff_or_admin(current_user: User = Depends(get_current_user)) -> User:
     if current_user.role not in (UserRole.ADMIN, UserRole.STAFF):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff access required")
+    return current_user
+
+
+def require_technician(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role != UserRole.TECHNICIAN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Technician access required")
+    return current_user
+
+
+def require_any_role(current_user: User = Depends(get_current_user)) -> User:
+    """Allow any authenticated user — admin, staff, or technician."""
     return current_user
