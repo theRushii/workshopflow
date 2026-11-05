@@ -73,9 +73,14 @@ export const WorkOrdersPage = () => {
     if (!selected) return;
     try {
       await api.patch(`/work-orders/${selected.id}/status`, { status: data.status, notes: data.notes });
-      // Also update priority if changed
-      if (data.priority && data.priority !== selected.priority) {
-        await api.put(`/work-orders/${selected.id}`, { priority: data.priority });
+      // Update priority and/or technician if changed
+      const updates: any = {};
+      if (data.priority && data.priority !== selected.priority) updates.priority = data.priority;
+      if (data.technician_id !== undefined && data.technician_id !== selected.technician_id) {
+        updates.technician_id = data.technician_id || null;
+      }
+      if (Object.keys(updates).length > 0) {
+        await api.put(`/work-orders/${selected.id}`, updates);
       }
       toast.success('Work order updated');
       setStatusModal(false);
@@ -164,7 +169,12 @@ export const WorkOrdersPage = () => {
             <div className="grid grid-cols-2 gap-3">
               {[
                 { label: 'Customer',   val: selected.customer_name || '—' },
-                { label: 'Technician', val: selected.technician_name || 'Not assigned' },
+                {
+                  label: 'Technician',
+                  val: selected.technician_name
+                    ? <span className="text-emerald-700">{selected.technician_name}</span>
+                    : <span className="text-amber-600 font-semibold">⚠ Not assigned</span>
+                },
                 { label: 'Priority',   val: <span className={PRIORITY_BADGE[selected.priority] || ''}>{selected.priority}</span> },
                 { label: 'Status',     val: <StatusBadge status={selected.status} /> },
               ].map(({ label, val }) => (
@@ -217,11 +227,17 @@ export const WorkOrdersPage = () => {
 
             <div className="flex gap-2.5 justify-end pt-1 border-t border-slate-100">
               {selected.status !== 'completed' && selected.status !== 'cancelled' && (
-                <>
-                  <button onClick={() => { resetStatus({ status: selected.status, notes: '', priority: selected.priority }); setStatusModal(true); }} className="btn-secondary">
-                    Update Status
-                  </button>
-                </>
+                <button onClick={() => {
+                  resetStatus({
+                    status: selected.status,
+                    notes: '',
+                    priority: selected.priority,
+                    technician_id: selected.technician_id || '',
+                  });
+                  setStatusModal(true);
+                }} className="btn-primary">
+                  Assign / Update
+                </button>
               )}
             </div>
           </div>
@@ -230,6 +246,17 @@ export const WorkOrdersPage = () => {
 
       <Modal open={statusModal} onClose={() => setStatusModal(false)} title="Update Work Order" size="sm">
         <form onSubmit={handleStatusSubmit(onStatusChange)} className="space-y-4">
+          <div>
+            <label className="form-label">Assign Technician</label>
+            <select {...regStatus('technician_id')} className="input-field">
+              <option value="">— Unassigned —</option>
+              {technicians.map(t => (
+                <option key={t.id} value={t.id}>
+                  {t.full_name} {t.is_available ? '✓' : '(busy)'}
+                </option>
+              ))}
+            </select>
+          </div>
           <div>
             <label className="form-label">Status</label>
             <select {...regStatus('status')} className="input-field">
@@ -244,11 +271,11 @@ export const WorkOrdersPage = () => {
           </div>
           <div>
             <label className="form-label">Notes <span className="text-slate-400 font-normal">(optional)</span></label>
-            <textarea {...regStatus('notes')} rows={3} className="input-field resize-none" placeholder="Optional notes…" />
+            <textarea {...regStatus('notes')} rows={2} className="input-field resize-none" placeholder="Optional notes…" />
           </div>
           <div className="flex gap-2.5 justify-end">
             <button type="button" onClick={() => setStatusModal(false)} className="btn-secondary">Cancel</button>
-            <button type="submit" className="btn-primary">Update Status</button>
+            <button type="submit" className="btn-primary">Save Changes</button>
           </div>
         </form>
       </Modal>
